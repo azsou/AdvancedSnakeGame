@@ -2,6 +2,8 @@
 An advanced Snake game with customizable map sizes and difficulty levels.
 （一个具有可自定义地图大小和难度级别的高级贪吃蛇游戏。）
 
+![AdvancedSnakeGame](logo.jpg)
+
 # 🐍 高级贪吃蛇游戏
 
 欢迎来到高级贪吃蛇游戏！这是一个现代化的贪吃蛇游戏，具有多种设置选项和难度级别。
