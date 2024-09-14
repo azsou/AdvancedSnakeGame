@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>高级贪吃蛇游戏</title>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            position: relative;
+            flex-direction: column;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        canvas {
+            background-color: #111;
+            border: 2px solid #fff;
+            display: none;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+        #score {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #fff;
+            font-size: 24px;
+            display: none;
+        }
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 32px;
+            display: none;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+        #menu {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            animation: fadeIn 1s ease-out;
+        }
+        .button {
+            background-color: #4CAF50;
+            color: #fff;
+            font-size: 24px;
+            margin: 10px;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.3s;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        .button:hover {
+            background-color: #45a049;
+            transform: translateY(-5px);
+        }
+        .settings {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            color: #fff;
+        }
+        .settings .option-group {
+            margin: 10px 0;
+            text-align: center;
+        }
+        .settings .option-group span {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 18px;
+        }
+        .settings .option-group .option-button {
+            background-color: #555;
+            color: #fff;
+            margin: 5px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.3s;
+        }
+        .settings .option-group .option-button.active {
+            background-color: #4CAF50;
+        }
+        .settings .option-group .option-button:hover {
+            background-color: #666;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div id="score">得分: 0</div>
+    <div id="message">游戏暂停</div>
+    <canvas id="gameCanvas" width="600" height="600"></canvas>
+
+    <div id="menu">
+        <div class="button" onclick="startGame()">开始游戏</div>
+        <div class="button" onclick="toggleSettings()">设置</div>
+        <div class="settings" id="settings">
+            <div class="option-group">
+                <span>地图大小:</span>
+                <button class="option-button" onclick="setMapSize(1)">1x</button>
+                <button class="option-button" onclick="setMapSize(2)">2x</button>
+                <button class="option-button" onclick="setMapSize(3)">3x</button>
+            </div>
+            <div class="option-group">
+                <span>难易度:</span>
+                <button class="option-button" onclick="setDifficulty('easy')">简单</button>
+                <button class="option-button" onclick="setDifficulty('normal')">普通</button>
+                <button class="option-button" onclick="setDifficulty('hard')">困难</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const messageElement = document.getElementById('message');
+        const menuElement = document.getElementById('menu');
+        const settingsElement = document.getElementById('settings');
+
+        let gridSize = 20;
+        let canvasSize = canvas.width;
+        let tileCount = canvasSize / gridSize;
+
+        let snake = [
+            { x: 15, y: 15 },
+            { x: 14, y: 15 },
+            { x: 13, y: 15 }
+        ];
+
+        let direction = { x: 1, y: 0 };
+        let nextDirection = { ...direction };
+        let food = { x: 25, y: 25 };
+        let score = 0;
+        let gameInterval = null;
+        let speed = 100;
+        const speedIncrement = 5;
+        const minSpeed = 50;
+
+        let isPaused = false;
+        let isGameOver = false;
+
+        let selectedMapSize = 1;
+        let selectedDifficulty = 'normal';
+
+        function toggleSettings() {
+            settingsElement.style.display = settingsElement.style.display === 'flex' ? 'none' : 'flex';
+        }
+
+        function handleKeydown(event) {
+            const key = event.key;
+
+            switch (key) {
+                case 'ArrowUp':
+                case 'w':
+                case 'W':
+                    if (direction.y === 0) {
+                        nextDirection = { x: 0, y: -1 };
+                    }
+                    break;
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    if (direction.y === 0) {
+                        nextDirection = { x: 0, y: 1 };
+                    }
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    if (direction.x === 0) {
+                        nextDirection = { x: -1, y: 0 };
+                    }
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    if (direction.x === 0) {
+                        nextDirection = { x: 1, y: 0 };
+                    }
+                    break;
+                case ' ':
+                    togglePause();
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        function togglePause() {
+            if (isGameOver) return;
+            if (isPaused) {
+                gameInterval = setInterval(gameLoop, speed);
+                messageElement.style.display = 'none';
+                isPaused = false;
+            } else {
+                clearInterval(gameInterval);
+                messageElement.textContent = '游戏暂停';
+                messageElement.style.display = 'block';
+                isPaused = true;
+            }
+        }
+
+        function drawRect(x, y, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(x * gridSize, y * gridSize, gridSize - 2, gridSize - 2);
+        }
+
+        function draw() {
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            snake.forEach((segment, index) => {
+                drawRect(segment.x, segment.y, index === 0 ? '#0f0' : '#0a0');
+            });
+
+            drawRect(food.x, food.y, '#f00');
+
+            scoreElement.textContent = `得分: ${score}`;
+        }
+
+        function update() {
+            direction = { ...nextDirection };
+
+            const newHead = {
+                x: snake[0].x + direction.x,
+                y: snake[0].y + direction.y
+            };
+
+            if (newHead.x < 0 || newHead.x >= tileCount || newHead.y < 0 || newHead.y >= tileCount) {
+                endGame();
+                return;
+            }
+
+            if (snake.some(segment => segment.x === newHead.x && segment.y === newHead.y)) {
+                endGame();
+                return;
+            }
+
+            snake.unshift(newHead);
+
+            if (newHead.x === food.x && newHead.y === food.y) {
+                score += 1;
+                adjustSpeed();
+                placeFood();
+            } else {
+                snake.pop();
+            }
+        }
+
+        function placeFood() {
+            let newFoodPosition;
+            while (true) {
+                newFoodPosition = {
+                    x: Math.floor(Math.random() * tileCount),
+                    y: Math.floor(Math.random() * tileCount)
+                };
+                if (!snake.some(segment => segment.x === newFoodPosition.x && segment.y === newFoodPosition.y)) {
+                    break;
+                }
+            }
+            food = newFoodPosition;
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+        }
+
+        function startGame() {
+            canvasSize = 600 * selectedMapSize;
+            canvas.width = canvasSize;
+            canvas.height = canvasSize;
+            tileCount = canvasSize / gridSize;
+
+            switch (selectedDifficulty) {
+                case 'easy':
+                    speed = 150;
+                    break;
+                case 'normal':
+                    speed = 100;
+                    break;
+                case 'hard':
+                    speed = 50;
+                    break;
+            }
+
+            clearInterval(gameInterval);
+            isPaused = false;
+            isGameOver = false;
+            score = 0;
+            snake = [
+                { x: 15, y: 15 },
+                { x: 14, y: 15 },
+                { x: 13, y: 15 }
+            ];
+            direction = { x: 1, y: 0 };
+            nextDirection = { ...direction };
+            placeFood();
+
+            menuElement.style.display = 'none';
+            canvas.style.display = 'block';
+            scoreElement.style.display = 'block';
+            messageElement.style.display = 'none'; // 确保在游戏开始时隐藏消息
+
+            gameInterval = setInterval(gameLoop, speed);
+        }
+
+        function endGame() {
+            clearInterval(gameInterval);
+            isGameOver = true;
+            messageElement.textContent = `游戏结束! 得分: ${score}`;
+            messageElement.style.display = 'block';
+            setTimeout(() => {
+                messageElement.style.display = 'none'; // 确保在游戏结束后的两秒后隐藏消息
+                startGame();
+            }, 2000);
+        }
+
+        function adjustSpeed() {
+            if (score % 5 === 0 && speed > minSpeed) {
+                speed -= speedIncrement;
+                clearInterval(gameInterval);
+                gameInterval = setInterval(gameLoop, speed);
+            }
+        }
+
+        function setMapSize(size) {
+            selectedMapSize = size;
+            document.querySelectorAll('.option-group:first-child .option-button').forEach((button, index) => {
+                button.classList.toggle('active', index === size - 1);
+            });
+        }
+
+        function setDifficulty(difficulty) {
+            selectedDifficulty = difficulty;
+            const difficulties = ['easy', 'normal', 'hard'];
+            document.querySelectorAll('.option-group:nth-child(2) .option-button').forEach((button, index) => {
+                button.classList.toggle('active', difficulties[index] === difficulty);
+            });
+        }
+
+        // 初始化默认选项
+        setMapSize(1);
+        setDifficulty('normal');
+
+        placeFood();
+
+        document.addEventListener('keydown', handleKeydown);
+    </script>
+</body>
+</html>
